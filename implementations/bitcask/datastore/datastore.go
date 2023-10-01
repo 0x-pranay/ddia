@@ -20,16 +20,20 @@ import (
 //   return 'some value'
 // }
 
+
+
 const DATA_DIR = "db_data"
 
 func Append(key string, value string) {
-  // if err := os.WriteFile("file.txt", []byte)
+
   err := os.Mkdir(DATA_DIR, os.ModePerm)
   if err != nil && !os.IsExist(err) {
+    // todo: create a directory in default location
     panic(err)
   }
 
-  fo, err := os.OpenFile("db_data/log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+  // todo: make sure this file is written by only one process at a time.
+  fo, err := os.OpenFile("db_data/active.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
   if err != nil {
     panic(err)
   }
@@ -40,22 +44,10 @@ func Append(key string, value string) {
     }
   }()
   
-  // buf := make([]byte, 1024)
-  // for {
-    // write that chunk
-    // if _, err := fo.Write(buf[:n])
+  // inserting a single entry
 
-  // }
-  // _, err := fmt.Fprintln(fo, key, "," value)
-  // if err != nil {
-  //   panic(err)
-  // }
   data := key + "," + value + "\n"
   fmt.Println(data)
-  // if _, err := fo.WriteString(data); err != nil {
-  //   panic(err)
-  // }
-
   if _, err := fo.Write([]byte(data)); err != nil {
     fo.Close()
     panic(err)

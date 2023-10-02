@@ -99,6 +99,11 @@ func (b *Bitcask) loadHintMap() error  {
     return err
   }
 
+  fmt.Println("Size of the hintfile", len(data))
+  if len(data) == 0 {
+    b.hintMap = make(map[string]DataLocation)
+    return nil
+  }
   if err := json.Unmarshal(data, &b.hintMap); err != nil {
     return err
   }
@@ -194,6 +199,47 @@ func (b *Bitcask) persistHintMap() error {
   return nil
 }
 
+func (b *Bitcask) Get(key string) (string, error) {
+  b.mu.RLock()
+  defer b.mu.RUnlock()
+
+  location, ok := b.hintMap[key]
+  if !ok {
+    return "", fmt.Errorf("key not found")
+  }
+
+  value := make([]byte, location.ValueSize)
+  _, err := b.activeFile.ReadAt(value, location.Offset)
+  if err != nil {
+    return "", err
+  }
+
+  return string(value), nil
+}
+
+func (b *Bitcask) Put(key string, value string) error {
+  b.mu.Lock()
+  defer b.mu.Unlock()
+
+  offset, err := b.writeToDataFile(key, value)
+  if err != nil {
+    return err
+  }
+
+  // update hint map
+  b.hintMap[key] = DataLocation{
+    SegmentIndex: 0,
+    Offset: offset,
+    ValueSize: len(value),
+  }
+
+  if err := b.persistHintMap(); err != nil {
+    return err
+  }
+
+  return nil
+}
+
 func (b *Bitcask) Close() {
   b.mu.Lock()
   defer b.mu.Unlock()
@@ -212,4 +258,19 @@ func main() {
   }
 
   defer db.Close()
+
+  err = db.Put("key1", "value1")
+  if err != nil {
+    fmt.Println("Error putting data:", err)
+    return
+  }
+
+  // Get
+  value, err := db.Get("key1")
+  if err != nil {
+    fmt.Println("Error getting data: ", err)
+    return
+  }
+
+  fmt.Println("Value:", value)
 }
